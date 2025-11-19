@@ -682,16 +682,14 @@
 
     async function initPyodideAndModel() {
       updateStatus("Loading ML ensemble & alternative data processors…", "loading");
-      try {
-        pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/" });
-        // Add timeout for package loading
-        const timeout = ms => new Promise((_, reject) => setTimeout(() => reject(new Error('Package loading timed out')), ms));
-        await Promise.race([
-          pyodide.loadPackage(["numpy", "pandas", "scikit-learn"]),
-          timeout(15000)
-        ]);
+      pyodide = await loadPyodide({
+        indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/"
+      });
 
-        const advancedPythonCode = `
+      updateStatus("Installing ML packages (numpy, pandas, scikit-learn)…", "loading");
+      await pyodide.loadPackage(["numpy", "pandas", "scikit-learn"]);
+
+      const advancedPythonCode = `
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -767,7 +765,7 @@ def train_ensemble_models():
     return rf, gb, nn, scaler
 
 # Train models
-rf_model, gb_model, nn_model, scaler = train_ensemble_models();
+rf_model, gb_model, nn_model, scaler = train_ensemble_models()
 
 def calculate_shap_approximation(features, models):
     """Approximate SHAP values using feature importance"""
@@ -878,57 +876,49 @@ def score_borrower_advanced(d):
     alt_data_features = features[7:]  # Last 5 features are alternative data
     alt_data_score = np.mean([digital_footprint/10, (social_sentiment+1)/2, 
                              min(location_stability/60, 1), min(transaction_velocity/100, 1), 
-                             network_score/10]);
+                             network_score/10])
     
     # Generate signals based on ML insights
-    signals = [];
+    signals = []
     
-    if (ensemble_prob < 0.15) {
-        signals.append("🟢 ML Ensemble: Very low default risk (PD < 15%)");
-    } else if (ensemble_prob < 0.30) {
-        signals.append("🟡 ML Ensemble: Moderate default risk (PD 15-30%)");
-    } else {
-        signals.append("🔴 ML Ensemble: High default risk (PD > 30%)");
-    }
+    if ensemble_prob < 0.15:
+        signals.append("🟢 ML Ensemble: Very low default risk (PD < 15%)")
+    elif ensemble_prob < 0.30:
+        signals.append("🟡 ML Ensemble: Moderate default risk (PD 15-30%)")
+    else:
+        signals.append("🔴 ML Ensemble: High default risk (PD > 30%)")
     
-    if (alt_data_score > 0.7) {
-        signals.append("📱 Strong digital behavior & network signals");
-    } else if (alt_data_score < 0.4) {
-        signals.append("⚠️ Weak alternative data signals detected");
-    }
+    if alt_data_score > 0.7:
+        signals.append("📱 Strong digital behavior & network signals")
+    elif alt_data_score < 0.4:
+        signals.append("⚠️ Weak alternative data signals detected")
     
-    if (dscr >= 1.5) {
-        signals.append("💰 Strong debt service coverage ratio");
-    } else if (dscr < 1.0) {
-        signals.append("⚠️ Insufficient debt service coverage");
-    }
+    if dscr >= 1.5:
+        signals.append("💰 Strong debt service coverage ratio")
+    elif dscr < 1.0:
+        signals.append("⚠️ Insufficient debt service coverage")
     
     # Risk band determination
-    if (credit_score >= 75) {
-        band = "🟢 PRIME · ML-Approved";
-        summary = f"Strong borrower profile with {ensemble_prob:.1%} default probability. ML models show consistent low-risk signals across traditional and alternative data.";
-    } else if (credit_score >= 55) {
-        band = "🟡 NEAR-PRIME · Conditional";
-        summary = f"Moderate risk profile with {ensemble_prob:.1%} default probability. Consider risk-based pricing or additional safeguards.";
-    } else {
-        band = "🔴 SUB-PRIME · High Risk";
-        summary = f"Elevated risk profile with {ensemble_prob:.1%} default probability. Requires enhanced due diligence or decline.";
-    }
+    if credit_score >= 75:
+        band = "🟢 PRIME · ML-Approved"
+        summary = f"Strong borrower profile with {ensemble_prob:.1%} default probability. ML models show consistent low-risk signals across traditional and alternative data."
+    elif credit_score >= 55:
+        band = "🟡 NEAR-PRIME · Conditional"
+        summary = f"Moderate risk profile with {ensemble_prob:.1%} default probability. Consider risk-based pricing or additional safeguards."
+    else:
+        band = "🔴 SUB-PRIME · High Risk"
+        summary = f"Elevated risk profile with {ensemble_prob:.1%} default probability. Requires enhanced due diligence or decline."
     
     # Generate actionable tips
-    tips = [];
-    if (ensemble_prob > 0.3) {
-        tips.append("Consider requiring co-guarantor or collateral");
-    }
-    if (dscr < 1.2) {
-        tips.append("Reduce loan amount or extend tenure to improve DSCR");
-    }
-    if (alt_data_score < 0.5) {
-        tips.append("Gather additional verification through references or utility bills");
-    }
-    if (digital_footprint < 4) {
-        tips.append("Low digital presence - consider manual verification processes");
-    }
+    tips = []
+    if ensemble_prob > 0.3:
+        tips.append("Consider requiring co-guarantor or collateral")
+    if dscr < 1.2:
+        tips.append("Reduce loan amount or extend tenure to improve DSCR")
+    if alt_data_score < 0.5:
+        tips.append("Gather additional verification through references or utility bills")
+    if digital_footprint < 4:
+        tips.append("Low digital presence - consider manual verification processes")
     
     return {
         "score": round(credit_score, 1),
@@ -950,14 +940,10 @@ def score_borrower_advanced(d):
         "altdata_contribution": round(alt_data_score * 100, 1)
     }
 `;
-        await pyodide.runPythonAsync(advancedPythonCode);
-        scoreFn = pyodide.globals.get("score_borrower_advanced");
+      await pyodide.runPythonAsync(advancedPythonCode);
+      scoreFn = pyodide.globals.get("score_borrower_advanced");
 
-        updateStatus("🚀 Advanced ML ensemble ready – enhanced with alternative data analytics", "ready");
-      } catch (err) {
-        console.error("Pyodide/package loading error:", err);
-        updateStatus("❌ Error loading ML packages. Please check your internet connection and reload.", "error");
-      }
+      updateStatus("🚀 Advanced ML ensemble ready – enhanced with alternative data analytics", "ready");
     }
 
     function updateStatus(text, state) {
@@ -1475,7 +1461,6 @@ def score_borrower_advanced(d):
     function sendChatMessage() {
       const message = chatInput.value.trim();
       if (!message) return;
-      // Add user message
       addChatMessage('user', message);
       chatInput.value = '';
       // Always fetch context from main form
@@ -1487,7 +1472,6 @@ def score_borrower_advanced(d):
           if (value !== "") context[key] = value;
         }
       }
-      // Generate AI response
       setTimeout(() => {
         const response = generateChatResponse(message, context);
         addChatMessage('ai', response);
@@ -1516,22 +1500,24 @@ def score_borrower_advanced(d):
     
     function generateChatResponse(userMessage) {
       const msg = userMessage.toLowerCase();
-      
+      // Use context if available, else fallback to currentProfile
+      const context = arguments.length > 1 && arguments[1] ? arguments[1] : currentProfile;
+
       // Risk-related queries
       if (msg.includes('risk') || msg.includes('score')) {
-        if (currentProfile) {
-          const riskLevel = getRiskLevel(currentProfile);
-          return `The current borrower shows ${riskLevel.toLowerCase()} risk level. Key factors include DSCR of ${((currentProfile.monthly_income - currentProfile.monthly_expenses - currentProfile.existing_emi) / (currentProfile.desired_emi + 1)).toFixed(2)} and ${(currentProfile.past_delay_days || 0)} days of past delays. ${getRiskExplanation(riskLevel)}`;
+        if (context) {
+          const riskLevel = getRiskLevel(context);
+          return `The current borrower shows ${riskLevel.toLowerCase()} risk level. Key factors include DSCR of ${((context.monthly_income - context.monthly_expenses - context.existing_emi) / (context.desired_emi + 1)).toFixed(2)} and ${(context.past_delay_days || 0)} days of past delays. ${getRiskExplanation(riskLevel)}`;
         }
         return "Please add borrower data context or analyze a profile first, then I can provide detailed risk insights based on their specific financial metrics and behavioral patterns.";
       }
 
       // Cash flow queries
       if (msg.includes('cash flow') || msg.includes('dscr') || msg.includes('capacity')) {
-        if (currentProfile) {
-          const capacity = currentProfile.monthly_income - currentProfile.monthly_expenses - currentProfile.existing_emi;
-          const dscr = capacity / (currentProfile.desired_emi + 1);
-          return `Current cash flow analysis: Net capacity is ₹${capacity.toLocaleString()}/month with DSCR of ${dscr.toFixed(2)}. ${dscr > 1.5 ? 'Excellent' : dscr > 1.2 ? 'Good' : dscr > 1.0 ? 'Marginal' : 'Insufficient'} debt service capability. Emergency fund covers ${(currentProfile.emergency_fund || 0)} months of expenses.`;
+        if (context) {
+          const capacity = context.monthly_income - context.monthly_expenses - context.existing_emi;
+          const dscr = capacity / (context.desired_emi + 1);
+          return `Current cash flow analysis: Net capacity is ₹${capacity.toLocaleString()}/month with DSCR of ${dscr.toFixed(2)}. ${dscr > 1.5 ? 'Excellent' : dscr > 1.2 ? 'Good' : dscr > 1.0 ? 'Marginal' : 'Insufficient'} debt service capability. Emergency fund covers ${(context.emergency_fund || 0)} months of expenses.`;
         }
         return "I need borrower data to analyze cash flows. Please add context or run an analysis first, then ask about specific cash flow metrics like DSCR, capacity, or emergency reserves.";
       }
@@ -1623,8 +1609,7 @@ def score_borrower_advanced(d):
                 <li>• Offer premium product with competitive rates (DSCR: ${dscr.toFixed(2)})</li>
                 <li>• Cross-sell insurance and investment products</li>
                 <li>• Consider pre-approved limit increase to ₹${Math.floor(currentProfile.desired_emi * 24 * 1.5).toLocaleString()}</li>
-              </ul>
-            </div>`;
+              </div>`;
         } else if (riskLevel === 'HIGH' || riskLevel === 'VERY_HIGH') {
           dynamicRecommendations = `
             <div class="bg-gradient-to-r from-amber-900/30 to-amber-800/20 border border-amber-600/30 rounded-lg p-4 mb-4">
@@ -1634,8 +1619,7 @@ def score_borrower_advanced(d):
                 <li>• Implement monthly check-ins for first 6 months</li>
                 <li>• Consider co-guarantor requirement for loan approval</li>
                 <li>• Offer financial literacy programs to improve stability</li>
-              </ul>
-            </div>`;
+              </div>`;
         }
         
         // Clear and update content

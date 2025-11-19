@@ -429,6 +429,7 @@
           <div class="bg-slate-800/50 rounded-lg p-2 border-l-2 border-emerald-400">
             <div class="font-medium text-emerald-300 text-xs">🤖 AI Analyst</div>
             <div class="text-slate-300 mt-1">Hello! I'm your AI Risk Analyst. Ask me anything about the current borrower profile, risk factors, or credit policies. I can explain complex metrics, suggest improvements, or help with decision-making.</div>
+            <div class="text-xs text-slate-400 mt-2"><b>DSCR</b>: Debt Service Coverage Ratio<br>Formula: <b>DSCR = (Income - Expenses - Existing EMI) / (Desired EMI + 1)</b></div>
           </div>
         </div>
         <!-- Add Data Context Utility -->
@@ -1433,20 +1434,8 @@ def score_borrower_advanced(d):
         let chatDataContext = null;
 
         addContextBtn.addEventListener('click', () => {
-          contextModal.classList.remove('hidden');
-        });
-        closeContextModal.addEventListener('click', () => {
-          contextModal.classList.add('hidden');
-        });
-        contextForm.addEventListener('submit', (e) => {
-          e.preventDefault();
-          const formData = new FormData(contextForm);
-          chatDataContext = {};
-          for (const [key, value] of formData.entries()) {
-            if (value !== "") chatDataContext[key] = value;
-          }
-          contextModal.classList.add('hidden');
-          contextStatus.textContent = `Context set for ${chatDataContext.name || 'borrower'}`;
+          chatDataContext = getMainFormContext();
+          contextStatus.textContent = `Context set from main form data.`;
         });
     const chatMessages = document.getElementById('chat-messages');
     const chatInput = document.getElementById('chat-input');
@@ -1492,10 +1481,26 @@ def score_borrower_advanced(d):
       chatHistory.push({ sender, message, timestamp: Date.now() });
     }
     
+    function getMainFormContext() {
+      const form = document.getElementById('score-form');
+      const data = {};
+      if (!form) return data;
+      Array.from(form.elements).forEach(el => {
+        if (el.name) {
+          // If input type is number, parse as float
+          if (el.type === 'number') {
+            data[el.name] = parseFloat(el.value) || 0;
+          } else {
+            data[el.name] = el.value;
+          }
+        }
+      });
+      return data;
+    }
+
     function generateChatResponse(userMessage) {
       const msg = userMessage.toLowerCase();
-      // Use context if available, else fallback to currentProfile
-      const context = arguments.length > 1 && arguments[1] ? arguments[1] : currentProfile;
+      const context = getMainFormContext();
 
       // Risk-related queries
       if (msg.includes('risk') || msg.includes('score')) {
