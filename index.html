@@ -807,7 +807,7 @@ def score_borrower_advanced(d):
     """Advanced ML-based scoring with ensemble models and risk analytics"""
     
     # Parse input data with safety checks
-    try {
+    try:
         monthly_income = max(float(d.get("monthly_income", 20000) or 20000), 0)
         monthly_expenses = max(float(d.get("monthly_expenses", 12000) or 12000), 0)
         existing_emi = max(float(d.get("existing_emi", 0) or 0), 0)
@@ -827,14 +827,13 @@ def score_borrower_advanced(d):
         repeat = (d.get("repeat_borrower") or "no").lower()
         freq = (d.get("repayment_freq") or "monthly").lower()
         
-    } catch (ValueError, TypeError) {
+    except (ValueError, TypeError):
         # Fallback to defaults if parsing fails
         monthly_income, monthly_expenses, existing_emi, desired_emi = 20000, 12000, 0, 5000
         years_in_business, household_size, past_delay_days = 3, 4, 0
         digital_footprint, social_sentiment, location_stability = 5, 0, 24
         transaction_velocity, network_score = 50, 7
         sector, repeat, freq = "other", "no", "monthly"
-    }
     
     # Create feature vector
     features = np.array([
@@ -1461,21 +1460,14 @@ def score_borrower_advanced(d):
     function sendChatMessage() {
       const message = chatInput.value.trim();
       if (!message) return;
+      
       // Add user message
       addChatMessage('user', message);
       chatInput.value = '';
-      // Always fetch context from main form
-      const mainForm = document.getElementById('score-form');
-      let context = {};
-      if (mainForm) {
-        const formData = new FormData(mainForm);
-        for (const [key, value] of formData.entries()) {
-          if (value !== "") context[key] = value;
-        }
-      }
+      
       // Generate AI response
       setTimeout(() => {
-        const response = generateChatResponse(message, context);
+        const response = generateChatResponse(message, chatDataContext);
         addChatMessage('ai', response);
       }, 800);
     }
@@ -1502,22 +1494,24 @@ def score_borrower_advanced(d):
     
     function generateChatResponse(userMessage) {
       const msg = userMessage.toLowerCase();
-      
+      // Use context if available, else fallback to currentProfile
+      const context = arguments.length > 1 && arguments[1] ? arguments[1] : currentProfile;
+
       // Risk-related queries
       if (msg.includes('risk') || msg.includes('score')) {
-        if (currentProfile) {
-          const riskLevel = getRiskLevel(currentProfile);
-          return `The current borrower shows ${riskLevel.toLowerCase()} risk level. Key factors include DSCR of ${((currentProfile.monthly_income - currentProfile.monthly_expenses - currentProfile.existing_emi) / (currentProfile.desired_emi + 1)).toFixed(2)} and ${(currentProfile.past_delay_days || 0)} days of past delays. ${getRiskExplanation(riskLevel)}`;
+        if (context) {
+          const riskLevel = getRiskLevel(context);
+          return `The current borrower shows ${riskLevel.toLowerCase()} risk level. Key factors include DSCR of ${((context.monthly_income - context.monthly_expenses - context.existing_emi) / (context.desired_emi + 1)).toFixed(2)} and ${(context.past_delay_days || 0)} days of past delays. ${getRiskExplanation(riskLevel)}`;
         }
         return "Please add borrower data context or analyze a profile first, then I can provide detailed risk insights based on their specific financial metrics and behavioral patterns.";
       }
 
       // Cash flow queries
       if (msg.includes('cash flow') || msg.includes('dscr') || msg.includes('capacity')) {
-        if (currentProfile) {
-          const capacity = currentProfile.monthly_income - currentProfile.monthly_expenses - currentProfile.existing_emi;
-          const dscr = capacity / (currentProfile.desired_emi + 1);
-          return `Current cash flow analysis: Net capacity is ₹${capacity.toLocaleString()}/month with DSCR of ${dscr.toFixed(2)}. ${dscr > 1.5 ? 'Excellent' : dscr > 1.2 ? 'Good' : dscr > 1.0 ? 'Marginal' : 'Insufficient'} debt service capability. Emergency fund covers ${(currentProfile.emergency_fund || 0)} months of expenses.`;
+        if (context) {
+          const capacity = context.monthly_income - context.monthly_expenses - context.existing_emi;
+          const dscr = capacity / (context.desired_emi + 1);
+          return `Current cash flow analysis: Net capacity is ₹${capacity.toLocaleString()}/month with DSCR of ${dscr.toFixed(2)}. ${dscr > 1.5 ? 'Excellent' : dscr > 1.2 ? 'Good' : dscr > 1.0 ? 'Marginal' : 'Insufficient'} debt service capability. Emergency fund covers ${(context.emergency_fund || 0)} months of expenses.`;
         }
         return "I need borrower data to analyze cash flows. Please add context or run an analysis first, then ask about specific cash flow metrics like DSCR, capacity, or emergency reserves.";
       }
